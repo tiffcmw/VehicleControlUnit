@@ -40,7 +40,7 @@ The `io_simulation.c` file implements the core functionality for simulating digi
 
 #### Key Contributions to the Simulation 
 - Digital I/O Simulation (100 Hz):
-Implements `updateDigitalBuffers` to update digital buffers at a 100 Hz refresh rate.
+Implements cupdateDigitalBuffers` to update digital buffers at a 100 Hz refresh rate.
 Provides spoofing functions (`setDigitalPinState`) for programmatic manipulation of digital inputs.
 - Analog I/O Simulation (1000 Hz):
 Implements `updateAnalogBuffers` to update analog buffers at a 1000 Hz refresh rate.
@@ -54,3 +54,84 @@ Simulates vehicle behavior by processing inputs (e.g., throttle, brake, engine t
 - Implements timing-accurate simulation capabilities for digital and analog I/O (Section 3.3).
 - Provides a realistic environment for validating control algorithms without modifying private variables (Section 1).
 - Addresses the need for manual and programmatic buffer manipulation (Section 4.1).
+
+
+## 4. sim_control.h
+
+### Purpose: Simulation Control Interface
+The `sim_control.h` file defines the interface for controlling the simulation environment. It provides mechanisms for time-based input sequences, event triggers, and runtime variable monitoring.
+
+#### Key Contributions to the Simulation Infrastructure
+- Time-Based Input Sequences:
+Defines the `SimSequenceEvent` structure for scheduling input changes at specific timestamps.
+- Event Triggers:
+Defines the `SimTrigger` structure for monitoring conditions (e.g., thresholds) and triggering callbacks.
+- Runtime Variable Monitoring:
+Declares `simMonitorVariable` for tracking and logging runtime variables during simulation.
+
+#### Relation to PR
+- Implements the simulation control interface described in Section 4.2.
+- Supports time-based input sequence definition and event triggers for specific conditions.
+
+
+## 5. sim_control.c
+### Purpose: Implementation of Simulation Control
+The `sim_control.c` file implements the simulation control interface defined in sim_control.h. It manages time-based sequences, triggers, and runtime monitoring.
+
+#### Key Contributions to the Simulation Infrastructure
+- Time-Based Input Sequences:
+Implements `simAddSequenceEvent` to schedule input changes at specific timestamps.
+Processes sequences in `simUpdateControl` to update digital and analog buffers based on the simulation timeline.
+- Event Triggers:
+Implements `simAddTrigger` to define conditions (e.g., thresholds) and callbacks.
+Monitors conditions in simUpdateControl and invokes callbacks when conditions are met.
+- Runtime Variable Monitoring:
+Implements `simMonitorVariable` to track and log runtime variables for debugging and analysis.
+
+#### Relation to PR
+- Provides controlled execution speed through `simSetTimeScalev (Section 4.2).
+- Enables runtime variable monitoring and event triggers for specific conditions (Section 4.2).
+
+## 6. io_simulation_test.c
+### Purpose: Unit Testing for Simulation Infrastructure
+The `io_simulation_test.c` file contains unit tests for validating the behavior and integrity of the simulation infrastructure.
+
+#### Key Contributions to the Simulation Infrastructure
+- Buffer Initialization:
+Tests the initialization of digital and analog buffers to ensure they start in a clean state.
+- Buffer Updates:
+Validates the behavior of `updateDigitalBuffers` and `updateAnalogBuffers` for timing accuracy.
+- Controlled Access:
+Tests the functionality of `setDigitalPinState`, `getDigitalPinState`, `setAnalogValue`, and `getAnalogValue`.
+
+#### Relation to PR
+- Supports the development of a test suite for validating buffer behavior (Section 4.1).
+- Ensures the robustness of the simulation infrastructure by testing edge cases and expected behavior.
+
+
+## 7. control_example.c
+### Purpose: Example Usage of Simulation Control
+The `control_example.c` file demonstrates how to use the simulation infrastructure to define sequences, triggers, and runtime monitoring.
+
+#### Key Contributions to the Simulation Infrastructure
+- Time-Based Input Sequences:
+Demonstrates the use of simAddSequenceEvent to schedule a throttle input at a specific timestamp.
+- Event Triggers:
+Shows how to define a trigger for over-temperature conditions using simAddTrigger.
+- Runtime Monitoring:
+Demonstrates the use of simMonitorVariable to track engine temperature during simulation.
+
+#### Relation to PR
+- Provides a usage example for the simulation control interface (Section 4.2).
+- Demonstrates how to create a time-based simulation control flow (Section 5).
+
+
+
+## Summary:
+- CMakeLists.txt: Build and test integration. Supports unified framework and test suite development.
+- io_simulation.h: API for digital and analog I/O simulation. Provides encapsulated, standardized interfaces for buffer management.
+- io_simulation.c: Core simulation logic. Implements timing-accurate digital and analog I/O simulation and vehicle control logic.
+- sim_control.h: Simulation control interface. Defines interfaces for sequences, triggers, and runtime monitoring.
+- sim_control.c: Implementation of simulation control. Implements time-based sequences, event triggers, and runtime monitoring.
+- io_simulation_test.c: Unit testing for simulation infrastructure. Validates buffer behavior and ensures robustness of the simulation infrastructure.
+- control_example.c: Example usage of simulation control. Demonstrates how to use the simulation infrastructure for sequences, triggers, and runtime monitoring.
