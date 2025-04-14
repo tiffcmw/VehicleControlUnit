@@ -1,0 +1,24 @@
+simulation:
+  digital_io:
+    refresh_rate: 100
+    buffer_size: 1000
+    pin_count: 16
+    
+  analog_io:
+    refresh_rate: 1000
+    buffer_size: 1000
+    channel_count: 8
+    
+  can_bus:
+    enabled: true
+    bus_count: 2
+    buffer_size: 256
+    
+  timing:
+    default_scale: 1.0
+    max_scale: 10.0
+    
+  monitoring:
+    log_level: INFO
+    export_format: CSV
+    buffer_warning_threshold: 80
