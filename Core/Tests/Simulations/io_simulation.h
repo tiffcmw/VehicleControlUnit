@@ -26,4 +26,16 @@ void setAnalogValue(uint8_t channel, float value);
 float getAnalogValue(uint8_t channel);
 uint8_t getDigitalPinState(uint8_t pin);
 
+// Buffer monitoring functions
+typedef struct {
+    uint32_t overflows;
+    uint32_t updates;
+    float utilization;
+} BufferStats;
+
+void getDigitalBufferStats(BufferStats* stats);
+void getAnalogBufferStats(BufferStats* stats);
+void resetBufferStats(void);
+void enableBufferWarnings(uint8_t threshold);
+
 #endif /* IO_SIMULATION_H */

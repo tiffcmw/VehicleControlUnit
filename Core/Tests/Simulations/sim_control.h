@@ -30,4 +30,19 @@ void simAddSequenceEvent(SimSequenceEvent event);
 void simAddTrigger(SimTrigger trigger);
 void simMonitorVariable(const char* name, void* ptr, size_t size);
 
+// Advanced simulation control
+typedef struct {
+    uint32_t startTime;
+    uint32_t endTime;
+    uint32_t interval;
+    void (*callback)(uint32_t timestamp);
+} SimInterval;
+
+void simAddInterval(SimInterval interval);
+void simPause(void);
+void simResume(void);
+void simReset(void);
+void simJumpToTime(uint32_t timestamp);
+void simSetAutoRepeat(bool enabled);
+
 #endif /* SIM_CONTROL_H */
