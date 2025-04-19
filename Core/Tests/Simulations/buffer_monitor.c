@@ -39,3 +39,39 @@ void exportBufferData(const char* filename, uint32_t startTime, uint32_t endTime
 void registerBufferOverflowCallback(void (*callback)(void)) {
     overflowCallback = callback;
 }
+
+static struct {
+    uint32_t totalMessages;
+    uint32_t overflows;
+    uint32_t warningCount;
+    uint32_t errorCount;
+    uint32_t startTime;
+} bufferStats = {0};
+
+void logBufferMessage(LogLevel level, const char* message) {
+    if (level >= currentLogLevel && logFile != NULL) {
+        time_t now;
+        time(&now);
+        fprintf(logFile, "%lu,%d,%s\n", (unsigned long)now, level, message);
+        
+        bufferStats.totalMessages++;
+        switch(level) {
+            case LOG_LEVEL_WARNING:
+                bufferStats.warningCount++;
+                break;
+            case LOG_LEVEL_ERROR:
+                bufferStats.errorCount++;
+                break;
+        }
+    }
+}
+
+void getBufferStats(void) {
+    if (logFile) {
+        fprintf(logFile, "\nBuffer Statistics:\n");
+        fprintf(logFile, "Total Messages: %lu\n", bufferStats.totalMessages);
+        fprintf(logFile, "Overflows: %lu\n", bufferStats.overflows);
+        fprintf(logFile, "Warnings: %lu\n", bufferStats.warningCount);
+        fprintf(logFile, "Errors: %lu\n", bufferStats.errorCount);
+    }
+}
