@@ -38,4 +38,19 @@ void getAnalogBufferStats(BufferStats* stats);
 void resetBufferStats(void);
 void enableBufferWarnings(uint8_t threshold);
 
+typedef enum {
+    IO_SUCCESS = 0,
+    IO_INVALID_PIN,
+    IO_INVALID_CHANNEL,
+    IO_BUFFER_FULL,
+    IO_BUFFER_EMPTY,
+    IO_NOT_INITIALIZED
+} IOStatus;
+
+// Update function signatures to return status
+IOStatus setDigitalPinState(uint8_t pin, uint8_t state);
+IOStatus setAnalogValue(uint8_t channel, float value);
+IOStatus getAnalogValue(uint8_t channel, float* value);
+IOStatus getDigitalPinState(uint8_t pin, uint8_t* state);
+
 #endif /* IO_SIMULATION_H */
