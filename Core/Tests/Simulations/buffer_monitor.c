@@ -75,3 +75,43 @@ void getBufferStats(void) {
         fprintf(logFile, "Errors: %lu\n", bufferStats.errorCount);
     }
 }
+
+// Buffer Monitoring Initialization
+static bool isInitialized = false;
+
+void initBufferMonitor(void) {
+    if (!isInitialized) {
+        bufferStats.totalMessages = 0;
+        bufferStats.overflows = 0;
+        bufferStats.warningCount = 0;
+        bufferStats.errorCount = 0;
+        bufferStats.startTime = (uint32_t)time(NULL);
+        isInitialized = true;
+    }
+}
+
+void cleanupBufferMonitor(void) {
+    stopBufferLogging();
+    isInitialized = false;
+}
+
+// Buffer Utilization Tracking
+static uint32_t maxBufferSize = 1000; // Default size
+
+void setMaxBufferSize(uint32_t size) {
+    maxBufferSize = size;
+}
+
+float getBufferUtilization(void) {
+    return (float)bufferStats.totalMessages / maxBufferSize * 100.0f;
+}
+
+void checkBufferUtilization(void) {
+    float utilization = getBufferUtilization();
+    if (utilization > 80.0f) {
+        logBufferMessage(LOG_LEVEL_WARNING, "Buffer utilization above 80%");
+        if (overflowCallback) {
+            overflowCallback();
+        }
+    }
+}
