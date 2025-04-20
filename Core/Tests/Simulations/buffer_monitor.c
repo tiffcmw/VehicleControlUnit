@@ -115,3 +115,20 @@ void checkBufferUtilization(void) {
         }
     }
 }
+
+// Periodic Status Reporting
+static uint32_t lastStatusTime = 0;
+static const uint32_t STATUS_INTERVAL = 1000; // 1 second
+
+void updateBufferStatus(uint32_t currentTime) {
+    if (currentTime - lastStatusTime >= STATUS_INTERVAL) {
+        char statusMsg[128];
+        snprintf(statusMsg, sizeof(statusMsg), 
+                "Buffer Status: Messages=%lu, Util=%.1f%%, Warnings=%lu",
+                bufferStats.totalMessages,
+                getBufferUtilization(),
+                bufferStats.warningCount);
+        logBufferMessage(LOG_LEVEL_INFO, statusMsg);
+        lastStatusTime = currentTime;
+    }
+}
