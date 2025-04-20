@@ -46,6 +46,12 @@ static struct {
     uint32_t warningCount;
     uint32_t errorCount;
     uint32_t startTime;
+    struct {
+        uint32_t minProcessingTime;
+        uint32_t maxProcessingTime;
+        float avgProcessingTime;
+        uint32_t samplesCount;
+    } performance;
 } bufferStats = {0};
 
 void logBufferMessage(LogLevel level, const char* message) {
@@ -74,6 +80,17 @@ void getBufferStats(void) {
         fprintf(logFile, "Warnings: %lu\n", bufferStats.warningCount);
         fprintf(logFile, "Errors: %lu\n", bufferStats.errorCount);
     }
+}
+
+void updatePerformanceStats(uint32_t processingTime) {
+    bufferStats.performance.minProcessingTime = 
+        MIN(processingTime, bufferStats.performance.minProcessingTime);
+    bufferStats.performance.maxProcessingTime = 
+        MAX(processingTime, bufferStats.performance.maxProcessingTime);
+    bufferStats.performance.avgProcessingTime = 
+        (bufferStats.performance.avgProcessingTime * bufferStats.performance.samplesCount + processingTime) /
+        (bufferStats.performance.samplesCount + 1);
+    bufferStats.performance.samplesCount++;
 }
 
 // Buffer Monitoring Initialization
@@ -131,4 +148,25 @@ void updateBufferStatus(uint32_t currentTime) {
         logBufferMessage(LOG_LEVEL_INFO, statusMsg);
         lastStatusTime = currentTime;
     }
+}
+
+#define MAX_BUFFER_MESSAGES 1000
+
+static struct {
+    char* messages[MAX_BUFFER_MESSAGES];
+    uint32_t head;
+    uint32_t tail;
+    bool full;
+} messageBuffer = {0};
+
+void addBufferMessage(const char* message) {
+    if (messageBuffer.full) {
+        // Remove oldest message
+        free(messageBuffer.messages[messageBuffer.tail]);
+        messageBuffer.tail = (messageBuffer.tail + 1) % MAX_BUFFER_MESSAGES;
+    }
+    
+    messageBuffer.messages[messageBuffer.head] = strdup(message);
+    messageBuffer.head = (messageBuffer.head + 1) % MAX_BUFFER_MESSAGES;
+    messageBuffer.full = messageBuffer.head == messageBuffer.tail;
 }
