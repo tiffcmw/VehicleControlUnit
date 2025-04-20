@@ -45,4 +45,29 @@ void simReset(void);
 void simJumpToTime(uint32_t timestamp);
 void simSetAutoRepeat(bool enabled);
 
+// Advanced simulation scenarios
+typedef struct {
+    const char* name;
+    SimSequenceEvent* events;
+    uint32_t eventCount;
+    bool repeatable;
+    uint32_t repeatInterval;
+} SimScenario;
+
+// Simulation states
+typedef enum {
+    SIM_STATE_STOPPED,
+    SIM_STATE_RUNNING,
+    SIM_STATE_PAUSED,
+    SIM_STATE_ERROR
+} SimState;
+
+// New simulation control functions
+void simLoadScenario(SimScenario* scenario);
+void simSaveState(const char* filename);
+void simLoadState(const char* filename);
+SimState simGetState(void);
+void simSetSpeed(float speedMultiplier);
+uint32_t simGetElapsedTime(void);
+
 #endif /* SIM_CONTROL_H */
