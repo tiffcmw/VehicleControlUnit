@@ -147,3 +147,77 @@ void simLoadState(const char* filename) {
 SimState simGetState(void) {
     return simControl.state;
 }
+
+void simSetSpeed(float speedMultiplier) {
+    if (speedMultiplier <= 0.0f || speedMultiplier > 10.0f) {
+        logBufferMessage(LOG_LEVEL_WARNING, "Invalid speed multiplier");
+        return;
+    }
+    
+    simControl.speedMultiplier = speedMultiplier;
+    char logMsg[64];
+    snprintf(logMsg, sizeof(logMsg), "Simulation speed set to %.2fx", speedMultiplier);
+    logBufferMessage(LOG_LEVEL_INFO, logMsg);
+}
+
+uint32_t simGetElapsedTime(void) {
+    return simControl.elapsedTime;
+}
+
+void simAddInterval(SimInterval interval) {
+    if (interval.startTime >= interval.endTime) {
+        logBufferMessage(LOG_LEVEL_ERROR, "Invalid interval times");
+        return;
+    }
+    
+    // Store interval for processing
+    // Implementation depends on interval management strategy
+}
+
+void simPause(void) {
+    if (simControl.state == SIM_STATE_RUNNING) {
+        simControl.state = SIM_STATE_PAUSED;
+        logBufferMessage(LOG_LEVEL_INFO, "Simulation paused");
+    }
+}
+
+void simResume(void) {
+    if (simControl.state == SIM_STATE_PAUSED) {
+        simControl.state = SIM_STATE_RUNNING;
+        logBufferMessage(LOG_LEVEL_INFO, "Simulation resumed");
+    }
+}
+
+void simReset(void) {
+    simControl.elapsedTime = 0;
+    simControl.state = SIM_STATE_STOPPED;
+    simControl.activeScenario = NULL;
+    logBufferMessage(LOG_LEVEL_INFO, "Simulation reset");
+}
+
+void simJumpToTime(uint32_t timestamp) {
+    simControl.elapsedTime = timestamp;
+    char logMsg[64];
+    snprintf(logMsg, sizeof(logMsg), "Jumped to time: %lu ms", timestamp);
+    logBufferMessage(LOG_LEVEL_INFO, logMsg);
+}
+
+void simSetAutoRepeat(bool enabled) {
+    simControl.autoRepeat = enabled;
+    logBufferMessage(LOG_LEVEL_INFO, enabled ? 
+        "Auto-repeat enabled" : "Auto-repeat disabled");
+}
+
+// Update function to be called in the simulation loop
+void simUpdate(void) {
+    if (simControl.state != SIM_STATE_RUNNING) {
+        return;
+    }
+    
+    simControl.elapsedTime += (uint32_t)(simControl.timeScale * simControl.speedMultiplier);
+    
+    // Process active scenario if exists
+    if (simControl.activeScenario) {
+        processScenarioEvents();
+    }
+}
