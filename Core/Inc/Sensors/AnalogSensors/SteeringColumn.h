@@ -13,27 +13,28 @@ typedef struct {
  * @brief Initializes the SteeringColumn sensor with the given frequency,
  * channel, and zero offset.
  *
- * @param sc         Pointer to the SteeringColumn structure to initialize.
+ * @param steeringColumn Pointer to the SteeringColumn structure to initialize.
  * @param hz         The frequency in Hertz at which the sensor operates.
  * @param channel    The analog channel the sensor is connected to.
  * @param zeroOffset The zero offset value for the steering column.
  */
-void initSteeringColumn(SteeringColumn* sc, int hz, int channel, float zeroOffset);
+void initSteeringColumn(SteeringColumn* steeringColumn, int hz, int channel, float zeroOffset);
 
 /**
  * @brief Gets the current rotation angle of the steering column.
  *
- * @param sc Pointer to the SteeringColumn structure to query.
+ * @param steeringColumn Pointer to the SteeringColumn structure to query.
  * @return   The current rotation angle of the steering column.
  */
-float getSteeringColumnRotationAngle(SteeringColumn* sc);
+float getSteeringColumnRotationAngle(SteeringColumn* steeringColumn);
 
 /**
  * @brief Updates the SteeringColumn data.
  *
- * @param sc Pointer to the SteeringColumn structure to update.
+ * @param steeringColumn Pointer to the SteeringColumn structure to update.
+ * @return   _SUCCESS or _FAILURE.
  */
-void updateSteeringColumn(void* sc);
+int updateSteeringColumn(SteeringColumn* steeringColumn);
 
 /**
  * @brief Converts raw steering column data to a meaningful rotation angle.

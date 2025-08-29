@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define UPDATE(item_)  ((item_)->update(&item_))
+#define UPDATE(item_)  ((item_)->update(item_))
 #define STATUS(item_)  ((item_).updateable.status(&item_.updateable))
 #define ENABLE(item_)  ((item_).updateable.enable(&item_.updateable))
 #define DISABLE(item_)  ((item_).updateable.disable(&item_.updateable))
@@ -35,13 +35,14 @@ typedef struct Updateable {
 /*
  * @brief Initializes the Updateable with initial settings.
  *
- * @param child Pointer to the child struct.
+ * @param updateable Pointer to the Updateable struct.
  * @param name Name of the Updateable object.
  * @param hz Rate at which the Updateable is called (in Hz).
  * @param utype Type of the Updateable object (per UpdateableType).
+ * @param child Pointer to the child object that this Updateable will manage.
  * @return void
 */
-void initUpdateable(void* child, const char* name, int hz, UpdateableType utype);
+void initUpdateable(Updateable* updateable, const char* name, int hz, UpdateableType utype, void* child);
 
 /**
  * @brief Default update function for Updateable objects.
