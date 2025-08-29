@@ -3,8 +3,7 @@
 
 #include <string.h>
 
-void initUpdateable(void* child, const char* name, int hz, UpdateableType utype) {
-    Updateable* updateable = (Updateable*)child;
+void initUpdateable(Updateable* updateable, const char* name, int hz, UpdateableType utype, void* child) {
     // Initialize the updateable struct
     updateable->hz = hz;
     updateable->update = defaultUpdate;

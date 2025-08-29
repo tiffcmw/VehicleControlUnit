@@ -30,7 +30,7 @@ float getAppPosition(App* app);
  *
  * @param app Pointer to the App structure to update.
  */
-void updateApp(void* app);
+void updateApp(App* app);
 
 /**
  * @brief Converts raw APP data to a meaningful position value.

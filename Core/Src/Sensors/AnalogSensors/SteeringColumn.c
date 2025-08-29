@@ -1,24 +1,20 @@
 #include "../../../Inc/Sensors/AnalogSensors/SteeringColumn.h"
+#include "../../../Inc/Utils/Common.h"
 
 #include <stdio.h>
 
-void initSteeringColumn(SteeringColumn* sc, int hz, int channel, float zeroOffset) {
-    initAnalogSensor(&sc->base, "SteeringColumn", hz, channel, sc);
-    sc->rotation_angle = -1;
-    sc->zero_offset = zeroOffset;
-    sc->base.sensor.updateable.update = updateSteeringColumn;
+void initSteeringColumn(SteeringColumn* steeringColumn, int hz, int channel, float zeroOffset) {
+    initAnalogSensor(&steeringColumn->base, "SteeringColumn", hz, channel, steeringColumn);
+    steeringColumn->rotation_angle = -1;
+    steeringColumn->zero_offset = zeroOffset;
+    steeringColumn->base.sensor.updateable.update = updateSteeringColumn;
 }
 
-float getSteeringColumnRotationAngle(SteeringColumn* sc) {
-    return sc->rotation_angle;
+float getSteeringColumnRotationAngle(SteeringColumn* steeringColumn) {
+    return steeringColumn->rotation_angle;
 }
 
-int updateSteeringColumn(Updateable* updateable) {
-    // Cast the updateable pointer to a steering column sensor
-    Sensor* sensor = (Sensor*)updateable->child;
-    AnalogSensor* analogSensor = (AnalogSensor*)sensor->child;
-    SteeringColumn* steeringColumn = (SteeringColumn*)analogSensor->child;
-
+int updateSteeringColumn(SteeringColumn* steeringColumn) {
     // Check if the pointer is null
     if (steeringColumn == NULL) {
         fprintf(stderr, "Error: Null pointer passed to updateSteeringColumn\n");

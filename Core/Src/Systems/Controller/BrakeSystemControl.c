@@ -6,9 +6,9 @@
 
 void initBrakeSystemControl(BrakeSystemControl *bsc, int hz, int maxTemp, int brakeLightActivationPoint, int heavyBrakingActivationPoint, int fbp_channel, int rbp_channel, int temp_channel, int light_port){
     initControllerSystem(&bsc-> base, "Brake System Control", hz, c_BRAKES, updateBrakeSystemControl, bsc);
-    BrakePressure frontPressure, rearPressure;
-    Temperature temperature;
-    DigitalOutput brakeLight;
+    static BrakePressure frontPressure, rearPressure;
+    static Temperature temperature;
+    static DigitalOutput brakeLight;
 
     bsc->frontPressure = &frontPressure;
     bsc->rearPressure = &rearPressure;

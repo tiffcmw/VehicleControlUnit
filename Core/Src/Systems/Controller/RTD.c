@@ -9,11 +9,11 @@ void initRTD(RTD* rtd, Apps* apps, BrakeSystemControl* bsc, int hz, int buttonPo
   rtd->precharged = 0;
   rtd->counter = 0;
 
-  Button button;
+  static Button button;
   rtd->button = &button;
   initButton(rtd->button, "RTD Button", hz, 0);
 
-  DigitalOutput piezo;
+  static DigitalOutput piezo;
   rtd->piezo = &piezo;
   initDigitalOutput(rtd->piezo, "Piezo", hz, piezoPort);
   rtd->apps = apps;

@@ -11,7 +11,7 @@ void initExternalSystem(ExternalSystem* external, const char* name, int hz,
     external->comms = NULL;
     external->check_heartbeat = check_heartbeat;
     external->updateExternal = updateExternal;
-    external->child = 
+    external->child = child;
 
     // Set the updateable function to generic external system update
     external->system.updateable.update = e_defaultUpdate;

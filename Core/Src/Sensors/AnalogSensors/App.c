@@ -12,11 +12,10 @@ float getAppPosition(App* app) {
     return app->position;
 }
 
-void updateApp(void* app) {
-    App *myApp = (App *)app;
+void updateApp(App* app) {
     // FIXME: Implement APP connection with stm
-    float rawData = getAnalogSensorData(&myApp->base);
-    myApp->position = transferFunctionApp(rawData);
+    float rawData = getAnalogSensorData(&app->base);
+    app->position = transferFunctionApp(rawData);
 }
 
 float transferFunctionApp(float rawVal) {
