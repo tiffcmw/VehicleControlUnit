@@ -307,6 +307,8 @@ int main(void)
 
   SchedulerInit(&scheduler, updateables);
 
+  printf("Starting Vehicle Control Unit with FreeRTOS scheduler...\n");
+
   // Start the Scheduler
   SchedulerRun(&scheduler);
   /* USER CODE END 2 */
@@ -351,10 +353,13 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    printf("ERROR: Scheduler returned unexpectedly!\n");
+    HAL_Delay(1000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
+  #ifndef TEST_MODE
   /* USER CODE END 3 */
 }
 
@@ -1458,6 +1463,26 @@ int _write(int file, char *data, int len)
 
 }
 
+/* FreeRTOS hooks */
+void vApplicationMallocFailedHook(void) {
+    printf("ERROR: FreeRTOS malloc failed!\n");
+    for(;;);
+}
+
+void vApplicationIdleHook(void) {
+    // Called when no tasks are running
+    // Can enter low power mode here
+}
+
+void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName) {
+    printf("ERROR: Stack overflow in task: %s\n", pcTaskName);
+    for(;;);
+}
+
+void vApplicationTickHook(void) {
+    // Called on each FreeRTOS tick (optional)
+    // Keep this very short and fast
+}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
