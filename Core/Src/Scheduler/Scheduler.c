@@ -1,78 +1,248 @@
-#include <time.h>
-#include <stdint.h>
+#include "FreeRTOS.h"
+#include "task.h"
+#include "timers.h"
+#include "queue.h"
 #include "../../Inc/Scheduler/Scheduler.h"
-// FIXME: Was supposed to be timer include.
-// #include "../../Inc/stm32f7xx_hal_conf.h"
 
-// Timer flag declared in the interrupt handler
-// extern volatile uint32_t timer_flag;
+typedef struct {
+    Updateable* updateable;
+    TimerHandle_t timer;
+} ScheduledUpdateable;
 
-/**
- * Initializes the priority queue and schedules tasks based on the given sensors
- * and their update frequencies. Limits the number of sensors to MAX_SENSORS.
- */
-void SchedulerInit(Scheduler* scheduler, Updateable* updatableArray[]) {
-    PQInit(&scheduler->tasks);
-    scheduler->running = false;
+// Work item for the worker task
+typedef struct {
+    Updateable* updateable;
+    TickType_t timestamp;
+} WorkItem;
 
-    for (int i = 0; updatableArray[i] != NULL; i++) {
-        if (i >= MAX_SENSORS) {
-            printf("Warning: Number of sensors exceeds MAX_SENSORS. "
-                   "Some sensors will not be scheduled.\n");
-            break;
-        }
+static ScheduledUpdateable scheduledTasks[MAX_SENSORS];
+static int taskCount = 0;
 
-        Updateable* updateable = (Updateable*)updatableArray[i];
-        if (updateable->hz <= 0 || updateable->hz > MAX_HZ) {
-            continue; // Skip invalid frequencies
-        }
+// Worker task handles
+static TaskHandle_t workerTaskHandle = NULL;
+static QueueHandle_t workQueue = NULL;
 
-        Task task;
-        TaskInit(&task, updateable, updateable->hz);
-        int hz = 1000 / updateable->hz;
-        // Setup for STM32
-        #ifndef TEST_MODE
-        printf("hal tick: %u\r\n", HAL_GetTick());
-        int initialPriority = HAL_GetTick() + hz;
-        #else
-        int initialPriority = clock() / (CLOCKS_PER_SEC / 1000) + hz;
-        #endif
-        PQPush(&scheduler->tasks, task, initialPriority);
-    }
-}
+#define WORK_QUEUE_SIZE 32
+#define WORKER_STACK_SIZE 1024
+#define WORKER_PRIORITY (tskIDLE_PRIORITY + 2)
 
-/**
- * Runs the scheduler, repeatedly executing tasks based on their scheduled
- * execution times. Uses Sleep or usleep to avoid busy-waiting if no tasks are
- * ready to execute.
- */
-void SchedulerRun(Scheduler* scheduler) {
-    scheduler->running = true;
-    Task currentTask;
-
-    while (scheduler->running) {
-        // if (timer_flag < 0) continue;
-        // timer_flag--;
-        // FIXME: Re-implement timer.
-        #ifndef TEST_MODE
-        int currentTime = HAL_GetTick();
-        #else
-        int currentTime = clock() / (CLOCKS_PER_SEC / 1000);
-        #endif
-        // int currentTime = 0;
-
-        while (!PQIsEmpty(&scheduler->tasks) &&
-               PQPeek(&scheduler->tasks, &currentTask) &&
-               currentTask.nextExecTime <= currentTime) {
-            if (PQPop(&scheduler->tasks, &currentTask)) {
-                TaskExecute(&currentTask);
-                currentTask.nextExecTime = currentTime + (1000 / currentTask.hz);
-                PQPush(&scheduler->tasks, currentTask, currentTask.nextExecTime);  // Reinsert task with new priority
+// Worker task that processes updateables
+static void workerTask(void* pvParameters) {
+    WorkItem workItem;
+    
+    while (1) {
+        // Wait for work items from timer callbacks
+        if (xQueueReceive(workQueue, &workItem, portMAX_DELAY) == pdTRUE) {
+            if (workItem.updateable != NULL) {
+                // Record start time for performance monitoring
+                TickType_t startTime = xTaskGetTickCount();
+                
+                // Execute the updateable
+                Task task;
+                TaskInit(&task, workItem.updateable, workItem.updateable->hz);
+                TaskExecute(&task);
+                
+                // Check execution time
+                TickType_t executionTime = xTaskGetTickCount() - startTime;
+                TickType_t maxTime = pdMS_TO_TICKS(1000 / workItem.updateable->hz) / 2; // 50% of period
+                
+                if (executionTime > maxTime) {
+                    printf("WARNING: %s took %lu ticks (max recommended: %lu)\n", 
+                           workItem.updateable->name, executionTime, maxTime);
+                }
             }
         }
     }
 }
 
+// Fast timer callback - just queues work item
+static void updateableTimerCallback(TimerHandle_t xTimer) {
+    Updateable* updateable = (Updateable*)pvTimerGetTimerID(xTimer);
+    
+    if (updateable != NULL && workQueue != NULL) {
+        WorkItem workItem = {
+            .updateable = updateable,
+            .timestamp = xTaskGetTickCount()
+        };
+        
+        // Send to worker task (non-blocking from timer context)
+        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+        if (xQueueSendFromISR(workQueue, &workItem, &xHigherPriorityTaskWoken) != pdTRUE) {
+            // Queue full - this indicates the worker task is overloaded
+            printf("ERROR: Work queue full for %s - dropping task\n", updateable->name);
+        }
+        
+        // Yield if higher priority task was woken
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    }
+}
+
+void SchedulerInit(Scheduler* scheduler, Updateable* updatableArray[]) {
+    scheduler->running = 0;
+    taskCount = 0;
+
+    // Create work queue for communicating between timer callbacks and worker task
+    workQueue = xQueueCreate(WORK_QUEUE_SIZE, sizeof(WorkItem));
+    if (workQueue == NULL) {
+        printf("ERROR: Failed to create work queue\n");
+        return;
+    }
+
+    // Create worker task to handle updateables
+    if (xTaskCreate(workerTask, "SchedulerWorker", WORKER_STACK_SIZE, NULL, 
+                    WORKER_PRIORITY, &workerTaskHandle) != pdPASS) {
+        printf("ERROR: Failed to create worker task\n");
+        return;
+    }
+
+    printf("Created scheduler worker task\n");
+
+    // Create timers for each updateable
+    for (int i = 0; updatableArray[i] != NULL && i < MAX_SENSORS; i++) {
+        Updateable* updateable = updatableArray[i];
+        
+        if (updateable->hz <= 0 || updateable->hz > MAX_HZ) {
+            printf("Warning: Skipping %s - invalid frequency %d Hz\n", 
+                   updateable->name, updateable->hz);
+            continue;
+        }
+
+        // Calculate period in FreeRTOS ticks
+        TickType_t period = pdMS_TO_TICKS(1000 / updateable->hz);
+        if (period == 0) period = 1; // Minimum 1 tick for 1kHz tasks
+        
+        // Create timer name
+        char timerName[32];
+        snprintf(timerName, sizeof(timerName), "T_%s", updateable->name);
+        
+        // Create FreeRTOS software timer
+        TimerHandle_t timer = xTimerCreate(
+            timerName,                     // Timer name
+            period,                        // Period in ticks
+            pdTRUE,                       // Auto-reload (periodic)
+            updateable,                   // Timer ID
+            updateableTimerCallback       // Callback function
+        );
+        
+        if (timer != NULL) {
+            scheduledTasks[taskCount].updateable = updateable;
+            scheduledTasks[taskCount].timer = timer;
+            taskCount++;
+            
+            printf("Created timer: %s at %dHz (period: %lu ticks)\n", 
+                   updateable->name, updateable->hz, period);
+        } else {
+            printf("ERROR: Failed to create timer for %s\n", updateable->name);
+        }
+    }
+    
+    printf("Scheduler initialized with %d timers and worker task\n", taskCount);
+}
+
+void SchedulerRun(Scheduler* scheduler) {
+    scheduler->running = 1;
+    
+    // Start all timers
+    int started = 0;
+    for (int i = 0; i < taskCount; i++) {
+        if (xTimerStart(scheduledTasks[i].timer, 0) == pdPASS) {
+            started++;
+        } else {
+            printf("ERROR: Failed to start timer for %s\n", 
+                   scheduledTasks[i].updateable->name);
+        }
+    }
+    
+    printf("Started %d/%d timers\n", started, taskCount);
+    
+    // Start FreeRTOS scheduler
+    vTaskStartScheduler();
+}
+
 void SchedulerStop(Scheduler* scheduler) {
     scheduler->running = 0;
+    
+    // Stop all timers
+    for (int i = 0; i < taskCount; i++) {
+        if (scheduledTasks[i].timer != NULL) {
+            xTimerStop(scheduledTasks[i].timer, portMAX_DELAY);
+        }
+    }
+    
+    printf("All timers stopped\n");
+}
+
+// Utility functions
+void SchedulerSuspendUpdateable(const char* name) {
+    for (int i = 0; i < taskCount; i++) {
+        if (scheduledTasks[i].updateable && 
+            strcmp(scheduledTasks[i].updateable->name, name) == 0) {
+            if (xTimerStop(scheduledTasks[i].timer, 0) == pdPASS) {
+                printf("Suspended timer for %s\n", name);
+                return;
+            }
+        }
+    }
+    printf("Warning: Could not find or suspend timer for %s\n", name);
+}
+
+void SchedulerResumeUpdateable(const char* name) {
+    for (int i = 0; i < taskCount; i++) {
+        if (scheduledTasks[i].updateable && 
+            strcmp(scheduledTasks[i].updateable->name, name) == 0) {
+            if (xTimerStart(scheduledTasks[i].timer, 0) == pdPASS) {
+                printf("Resumed timer for %s\n", name);
+                return;
+            }
+        }
+    }
+    printf("Warning: Could not find or resume timer for %s\n", name);
+}
+
+void SchedulerGetStats(void) {
+    UBaseType_t queueLength = uxQueueMessagesWaiting(workQueue);
+    UBaseType_t queueSpaces = uxQueueSpacesAvailable(workQueue);
+    
+    printf("Scheduler Statistics:\n");
+    printf("- Active timers: %d\n", taskCount);
+    printf("- Work queue: %lu items pending, %lu spaces available\n", 
+           queueLength, queueSpaces);
+    
+    if (workerTaskHandle != NULL) {
+        TaskStatus_t taskStatus;
+        vTaskGetInfo(workerTaskHandle, &taskStatus, pdTRUE, eInvalid);
+        printf("- Worker task stack high water mark: %u words\n", 
+               taskStatus.usStackHighWaterMark);
+    }
+    
+    if (queueLength > (WORK_QUEUE_SIZE * 3 / 4)) {
+        printf("WARNING: Work queue is %lu%% full - worker may be overloaded\n",
+               (queueLength * 100) / WORK_QUEUE_SIZE);
+    }
+}
+
+// Cleanup function for proper shutdown
+void SchedulerCleanup(void) {
+    // Delete worker task
+    if (workerTaskHandle != NULL) {
+        vTaskDelete(workerTaskHandle);
+        workerTaskHandle = NULL;
+    }
+    
+    // Delete work queue
+    if (workQueue != NULL) {
+        vQueueDelete(workQueue);
+        workQueue = NULL;
+    }
+    
+    // Delete all timers
+    for (int i = 0; i < taskCount; i++) {
+        if (scheduledTasks[i].timer != NULL) {
+            xTimerDelete(scheduledTasks[i].timer, portMAX_DELAY);
+            scheduledTasks[i].timer = NULL;
+        }
+    }
+    
+    taskCount = 0;
+    printf("Scheduler cleaned up\n");
 }
