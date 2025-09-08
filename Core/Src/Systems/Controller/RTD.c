@@ -36,6 +36,9 @@ int startRTD(RTD* rtd) {
 
 int updateRTD(ControllerSystem* controller) {
   RTD* rtd = (RTD*)controller->child;
+  // ping button to update in telemetry
+  getButtonReading(rtd->button);
+
   if (rtd->apps->base.state != c_validated || rtd->bsc->base.state != c_validated) {
     printf("RTD: Apps or Brake System Control Actuator is not validated\r\n");
     return _FAILURE;

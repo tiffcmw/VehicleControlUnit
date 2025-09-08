@@ -12,9 +12,9 @@ void initBrakeSystemControl(BrakeSystemControl *bsc, int hz, int maxTemp, int br
 
     bsc->frontPressure = &frontPressure;
     bsc->rearPressure = &rearPressure;
-    initBrakePressure(bsc -> frontPressure, hz, fbp_channel);
-    initBrakePressure(bsc -> rearPressure, hz, rbp_channel);
-    
+    initBrakePressure(bsc -> frontPressure, hz, fbp_channel, "Front Brake Pressure");
+    initBrakePressure(bsc -> rearPressure, hz, rbp_channel, "Rear Brake Pressure");
+
     bsc->temperature = &temperature;
     initTemperature(bsc -> temperature, hz, temp_channel);
 

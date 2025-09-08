@@ -36,9 +36,11 @@
 #include "../Inc/Systems/Monitor/RTDMonitor.h"
 #include "../Inc/Systems/Monitor/TorquePolice.h"
 #include "../Inc/Utils/Constants.h"
+#include "../Inc/Utils/Telemetry.h"
 
 #ifndef TEST_MODE
 #include "stm32f7xx_hal_adc.h" 
+#include "stm32f7xx_it.h"
 #endif
 /* USER CODE END Includes */
 
@@ -185,6 +187,9 @@ int main(void)
     printf("CAN1 init failed\r\n");
   }
 
+  // Init Telemetry
+  initTelemetry();
+
   // Begin ADC DMA
   if(HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc1_buffer, 7) != HAL_OK) {
 	  Error_Handler();
@@ -202,6 +207,9 @@ int main(void)
   if(HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, (uint32_t*)dac1_buffer, DAC1_BUFFER_SIZE, DAC_ALIGN_12B_R) != HAL_OK) {
     Error_Handler();
   }
+
+  __HAL_UART_ENABLE_IT(&huart3, UART_IT_RXNE);
+  initUartConfigListener();
 
   uint32_t multi_mode = (ADC123_COMMON->CCR & ADC_CCR_MULTI);
   printf("ADC Multi-mode: 0x%08lX\r\n", multi_mode);

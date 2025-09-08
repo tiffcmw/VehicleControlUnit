@@ -1,5 +1,6 @@
 #include "../../../Inc/Systems/Monitor/AppsMonitor.h"
 #include "../../../Inc/Utils/Common.h"
+#include "../../../Inc/Utils/MessageFormat.h"
 #include <math.h>
 
 // Make new Apps MonitorSystem
@@ -27,9 +28,6 @@ int checkAppsMonitor(void* am) {
     if (apps->status != APPS_OK && apps->status != APPS_LOW) {
         return _FAILURE;
     }
-    if (apps->status == APPS_LOW) {
-        printf("AppsMonitor: APPS position is too low. Defaulting to 0 to pass\r\n");
-    }
     return _SUCCESS;
 }
 
@@ -39,23 +37,27 @@ void checkAppsLimit(Apps* apps) {
     float pos2 = getAppPosition(apps->app[1]);
 
     // Resonable Value check upper bound
-    if (pos1 > 100 || pos2 > 100) {
+    if (pos1 > 1 || pos2 > 1) {
         apps->status = APPS_FAULT;
+        sendSystemStatus("Apps", "Out of bounds");
         return;
     }
 
     // In sync check
     float difference = fabs(pos1 - pos2);
-    if (difference > APPS_DIFFERENCE * 100) {
+    if (difference > APPS_DIFFERENCE) {
         apps->status = APPS_FAULT;
+        sendSystemStatus ("Apps","Greater than 10\% difference");
         return;
     } 
 
     // Resonable Value check lower bound
     if (pos1 < 0 || pos2 < 0) {
         apps->status = APPS_LOW;
+        sendSystemStatus ("Apps", "Below minimum");
         return;
     }
 
+    sendSystemStatus("Apps", "Valid");
     apps->status = APPS_OK;
 }
