@@ -27,6 +27,8 @@
 #include "../Inc/Sensors/AnalogSensor.h"
 #include "../Inc/Sensors/DigitalSensor.h"
 #include "../Inc/Outputs/DigitalOutput.h"
+#include "../Inc/Utils/Telemetry.h"
+#include "../Inc/Utils/MessageFormat.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -51,6 +53,11 @@ CAN_RxHeaderTypeDef RxHeader1;
 CAN_RxHeaderTypeDef RxHeader2;
 uint8_t RxData1[8];
 uint8_t RxData2[8];
+
+// UART config reception buffer
+static uint8_t uart_rx_char;
+static char uart_cmd[16];  // Only need "CONFIG_REQUEST"
+static uint8_t cmd_index = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -72,6 +79,7 @@ extern CAN_HandleTypeDef hcan2;
 extern DMA_HandleTypeDef hdma_dac1;
 extern DMA_HandleTypeDef hdma_dac2;
 extern TIM_HandleTypeDef htim2;
+extern UART_HandleTypeDef huart3;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -253,6 +261,20 @@ void TIM2_IRQHandler(void)
 }
 
 /**
+  * @brief This function handles USART3 global interrupt.
+  */
+void USART3_IRQHandler(void)
+{
+  /* USER CODE BEGIN USART3_IRQn 0 */
+
+  /* USER CODE END USART3_IRQn 0 */
+  HAL_UART_IRQHandler(&huart3);
+  /* USER CODE BEGIN USART3_IRQn 1 */
+
+  /* USER CODE END USART3_IRQn 1 */
+}
+
+/**
   * @brief This function handles DMA2 stream0 global interrupt.
   */
 void DMA2_Stream0_IRQHandler(void)
@@ -310,6 +332,11 @@ void CAN2_RX0_IRQHandler(void)
 
 /* USER CODE BEGIN 1 */
 volatile uint32_t timer_flag = 0;
+
+void initUartConfigListener(void) {
+    // Start UART interrupt reception
+    HAL_UART_Receive_IT(&huart3, &uart_rx_char, 1);
+}
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
@@ -385,6 +412,36 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
     }
 }
 
+// Callback for UART reception complete
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART3) {
+        if (uart_rx_char == '\n' || uart_rx_char == '\r') {
+            // Check if it's CONFIG_REQUEST
+            uart_cmd[cmd_index] = '\0';
+            if (strcmp(uart_cmd, "CONFIG_REQUEST") == 0) {
+                handleTelemetryConfigRequest();
+            }
+            cmd_index = 0;
+        }
+        else if (uart_rx_char >= 'A' && uart_rx_char <= 'Z' && cmd_index < 15) {
+            // Only store uppercase letters for CONFIG_REQUEST
+            uart_cmd[cmd_index++] = uart_rx_char;
+        }
+        else if (uart_rx_char == '_' && cmd_index < 15) {
+            // Store underscore for CONFIG_REQUEST
+            uart_cmd[cmd_index++] = uart_rx_char;
+        }
+        else if (uart_rx_char < 'A' || uart_rx_char > 'Z') {
+            // Reset on any invalid character
+            cmd_index = 0;
+        }
+        
+        // Re-enable interrupt
+        HAL_UART_Receive_IT(&huart3, &uart_rx_char, 1);
+    }
+}
+
 // Callback for ADC conversion complete
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
   if (hadc == &hadc1) {
@@ -394,6 +451,35 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
   } else if (hadc == &hadc3) {
     ProcessADCData(adc1_buffer, adc2_buffer, adc3_buffer);
   }
+}
+
+// CAN TX Complete Callbacks to generate telemetry messages
+void HAL_CAN_TxMailbox0CompleteCallback(CAN_HandleTypeDef *hcan)
+{
+    // Create a telemetry message for TX confirmation using proper sendMessage function
+    if (hcan == &hcan1) {
+        sendMessage("CAN", MSG_CAN_TX, "ID:0x123;DLC:8;Data:AABBCCDD55667788");
+    } else if (hcan == &hcan2) {
+        sendMessage("CAN", MSG_CAN_TX, "ID:0x123;DLC:8;Data:AABBCCDD55667788");
+    }
+}
+
+void HAL_CAN_TxMailbox1CompleteCallback(CAN_HandleTypeDef *hcan)
+{
+    if (hcan == &hcan1) {
+        sendMessage("CAN", MSG_CAN_TX, "ID:0x456;DLC:8;Data:1122334455667788");
+    } else if (hcan == &hcan2) {
+        sendMessage("CAN", MSG_CAN_TX, "ID:0x456;DLC:8;Data:1122334455667788");
+    }
+}
+
+void HAL_CAN_TxMailbox2CompleteCallback(CAN_HandleTypeDef *hcan)
+{
+    if (hcan == &hcan1) {
+        sendMessage("CAN", MSG_CAN_TX, "ID:0x789;DLC:8;Data:DEADBEEFCAFEBABE");
+    } else if (hcan == &hcan2) {
+        sendMessage("CAN", MSG_CAN_TX, "ID:0x789;DLC:8;Data:DEADBEEFCAFEBABE");
+    }
 }
 
 /* USER CODE END 1 */
